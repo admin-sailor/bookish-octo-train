@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remote Support — IT Support Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f8f7f4;
+    --card: #ffffff;
+    --dark: #0f1117;
+    --teal: #0d9488;
+    --teal-light: #ccfbf1;
+    --teal-mid: #14b8a6;
+    --text: #1c1c1e;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,.10), 0 2px 8px rgba(0,0,0,.06);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── BACKGROUND TEXTURE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(13,148,136,.07) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(13,148,136,.05) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(248,247,244,.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 clamp(20px, 5vw, 60px);
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-mark {
+    width: 32px; height: 32px;
+    background: var(--teal);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; }
+  .logo-text {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--dark);
+    letter-spacing: -0.3px;
+  }
+  .logo-text span { color: var(--teal); }
+  .header-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: livepulse 2s infinite;
+  }
+  @keyframes livepulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
+    50%      { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+  }
+
+  /* ── HERO */
+  .hero {
+    position: relative;
+    z-index: 1;
+    padding: clamp(60px, 10vw, 100px) clamp(20px, 5vw, 60px) clamp(40px, 6vw, 60px);
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--teal-light);
+    color: var(--teal);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 100px;
+    margin-bottom: 24px;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    border: 1px solid rgba(13,148,136,.2);
+    animation: fadeUp .5s ease both;
+  }
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(32px, 6vw, 58px);
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -1.5px;
+    color: var(--dark);
+    margin-bottom: 20px;
+    animation: fadeUp .5s .1s ease both;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--teal);
+    position: relative;
+  }
+  .hero h1 em::after {
+    content: '';
+    position: absolute;
+    left: 0; bottom: 2px;
+    width: 100%; height: 3px;
+    background: var(--teal);
+    border-radius: 2px;
+    opacity: .3;
+  }
+  .hero p {
+    font-size: clamp(15px, 2vw, 18px);
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 560px;
+    margin: 0 auto 40px;
+    font-weight: 400;
+    animation: fadeUp .5s .2s ease both;
+  }
+
+  /* ── MAIN CARD */
+  .card-wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 0 clamp(16px, 4vw, 40px);
+    animation: fadeUp .5s .3s ease both;
+  }
+  .main-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .card-header {
+    background: var(--dark);
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .card-header-icon {
+    width: 40px; height: 40px;
+    background: rgba(255,255,255,.08);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .card-header-icon svg { width: 20px; height: 20px; fill: none; stroke: var(--teal-mid); stroke-width: 1.8; stroke-linecap: round; }
+  .card-header-text { flex: 1; }
+  .card-header-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 2px;
+  }
+  .card-header-sub { font-size: 12px; color: rgba(255,255,255,.45); }
+  .card-body { padding: 28px 24px; }
+
+  /* ── STEPS */
+  .steps-list {
+    list-style: none;
+    margin-bottom: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .step-item {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--teal-light);
+    color: var(--teal);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    border: 1.5px solid rgba(13,148,136,.25);
+  }
+  .step-text { flex: 1; }
+  .step-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .step-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .step-desc code {
+    background: #f3f4f6;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--teal);
+  }
+
+  /* ── DOWNLOAD BUTTON */
+  .download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 16px 24px;
+    background: var(--teal);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+    letter-spacing: -.2px;
+  }
+  .download-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,.12) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .download-btn:hover {
+    background: #0f766e;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(13,148,136,.35);
+  }
+  .download-btn:active { transform: translateY(0); }
+  .download-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; flex-shrink: 0; }
+  .btn-sub {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    opacity: .75;
+    margin-top: 2px;
+    letter-spacing: 0;
+  }
+
+  /* ── DIVIDER */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── SUPPORT LINK */
+  .support-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    text-decoration: none;
+    transition: all .15s;
+    font-weight: 500;
+  }
+  .support-link:hover { border-color: var(--teal); color: var(--teal); background: var(--teal-light); }
+  .support-link svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+  /* ── TRUST STRIP */
+  .trust-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 16px;
+    font-size: 11.5px;
+    color: var(--muted);
+    padding-bottom: 4px;
+  }
+  .trust-strip svg { width: 13px; height: 13px; fill: none; stroke: var(--teal); stroke-width: 2; flex-shrink: 0; }
+  .trust-sep { color: var(--border); margin: 0 4px; }
+
+  /* ── FEATURES GRID */
+  .features {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 48px auto 0;
+    padding: 0 clamp(16px, 4vw, 40px) clamp(60px,8vw,80px);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    animation: fadeUp .5s .45s ease both;
+  }
+  @media (max-width: 640px) { .features { grid-template-columns: 1fr; } }
+  .feat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .feat-icon {
+    width: 36px; height: 36px;
+    background: var(--teal-light);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 12px;
+  }
+  .feat-icon svg { width: 18px; height: 18px; fill: none; stroke: var(--teal); stroke-width: 2; stroke-linecap: round; }
+  .feat-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 5px; color: var(--dark); }
+  .feat-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* ── FOOTER */
+  footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 20px clamp(20px, 5vw, 60px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: rgba(248,247,244,.8);
+  }
+  .footer-left { font-size: 12px; color: var(--muted); }
+  .footer-left strong { color: var(--text); }
+  .footer-right { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* ── ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── TOAST */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--dark);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transition: all .3s;
+    z-index: 999;
+    white-space: nowrap;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast svg { width: 14px; height: 14px; fill: none; stroke: #22c55e; stroke-width: 2.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+    </div>
+    <span class="logo-text">Andrew <span>Fleischer</span> IT</span>
+  </div>
+  <div class="header-badge">
+    <div class="live-dot"></div>
+    Support Online
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-tag">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    Secure Remote Support
+  </div>
+  <h1>Get help from your<br><em>IT technician</em> in minutes</h1>
+  <p>Your technician will guide you through this. Download the support tool below — it lets us view and control your screen to resolve your issue quickly and securely.</p>
+</section>
+
+<div class="card-wrap">
+  <div class="main-card">
+    <div class="card-header">
+      <div class="card-header-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      </div>
+      <div class="card-header-text">
+        <div class="card-header-title">Remote Support Agent</div>
+        <div class="card-header-sub">ConnectWise ScreenConnect · Signed by ConnectWise, LLC</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <ol class="steps-list">
+        <li class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <div class="step-title">Click the download button below</div>
+            <div class="step-desc">A file called <code>ScreenConnect.ClientSetup.msi</code> will download to your computer.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <div class="step-title">Open the downloaded file</div>
+            <div class="step-desc">Find it in your Downloads folder and double-click it to run. Click <strong>Yes</strong> if Windows asks for permission.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <div class="step-title">Tell your technician you're ready</div>
+            <div class="step-desc">Once installed, your technician will be notified automatically and can connect to assist you.</div>
+          </div>
+        </li>
+      </ol>
+
+      <a id="downloadBtn" class="download-btn" href="#" onclick="handleDownload(event)">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>
+          Download Support Tool
+          <span class="btn-sub">ScreenConnect.ClientSetup.msi · ~8 MB · Windows</span>
+        </span>
+      </a>
+
+      <div class="divider">or join with a session code</div>
+
+      <a href="https://andrew-fleischer.screenconnect.com" target="_blank" rel="noopener" class="support-link">
+        <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Enter a session code at andrew-fleischer.screenconnect.com
+      </a>
+
+      <div class="trust-strip">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Encrypted connection
+        <span class="trust-sep">·</span>
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Verified publisher
+        <span class="trust-sep">·</span>
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Session ends when you close it
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="features">
+  <div class="feat">
+    <div class="feat-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <div class="feat-title">Encrypted &amp; Secure</div>
+    <div class="feat-desc">All traffic is encrypted over TLS. Your technician can only connect during an active session.</div>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div class="feat-title">You Stay in Control</div>
+    <div class="feat-desc">You can see everything the technician does. Close the app at any time to immediately end the session.</div>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">
+      <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8a19.79 19.79 0 01-3.07-8.7A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+    </div>
+    <div class="feat-title">Need Help?</div>
+    <div class="feat-desc">Call or email your technician directly if you have trouble with the download or installation.</div>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-left">
+    <strong>Andrew Fleischer IT</strong> · Powered by ConnectWise ScreenConnect
+  </div>
+  <div class="footer-right">instance: abdddf1fa6c6a3d7</div>
+</footer>
+
+<div id="toast">
+  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  Download started!
+</div>
+
+<script>
+  // ── Real ScreenConnect MSI download URL
+  // Includes all required params: &h= relay, &p= port, &k= public key (RSA-2048)
+  // Without &k= the agent installs but cannot authenticate to the relay
+  var MSI_URL = "https://andrew-fleischer.screenconnect.com/Bin/ScreenConnect.ClientSetup.msi" +
+    "?e=Access" +
+    "&y=Guest" +
+    "&h=instance-ngmctw-relay.screenconnect.com" +
+    "&p=443" +
+    "&k=BgIAAACkAABSU0ExAAgAAAEAAQDd7A8t1xwPQS%2fDGgToR5MTyH%2bkHBkBWT8mEFki%2btVXlOq7WucYgnELUAxQV4L2rcFHVoQy3fsApSx5N7fIpH3eWHSX7TpNcM%2b0LPPAMmAfpaU%2b3C4FuCK74rLUjX%2fJL89SzD9OJKCs1pUX%2fSsRub5vMHvhcRwUfEcLwVXC%2bTBB%2fwXu702FRvTrFEhNapKX0vfrp2YUOSD6DuOLljqG0Q4O5Fp4jT627JgIOBJzATFKg5S2ES4ptgE1WyiWKg8SXhntlYpjNM8j4NgJ0nbfpPxGzkyLi%2bkSVS9h%2byUnN9ipdY7CmMLCOGmGRvC3Q0XoA6H6f8DDvPJkN%2fgoFObZt17q";
+
+  document.getElementById('downloadBtn').href = MSI_URL;
+
+  function handleDownload(e) {
+    // Show toast
+    var toast = document.getElementById('toast');
+    toast.classList.add('show');
+    setTimeout(function() { toast.classList.remove('show'); }, 3000);
+    // Let the href do the actual download (no preventDefault)
+  }
+</script>
+</body>
+</html>
