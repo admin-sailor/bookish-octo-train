@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScreenConnect Binary Parser</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080b12;
+  --panel: #0d1120;
+  --panel2: #111827;
+  --border: #1f2a3d;
+  --border-hi: #2d3f5a;
+  --text: #d4dce8;
+  --muted: #4a5a72;
+  --teal: #2dd4bf;
+  --teal-dim: rgba(45,212,191,.1);
+  --teal-glow: rgba(45,212,191,.25);
+  --green: #4ade80;
+  --green-dim: rgba(74,222,128,.1);
+  --yellow: #fbbf24;
+  --red: #f87171;
+  --accent: #60a5fa;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Outfit', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Grid background */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(45,212,191,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45,212,191,.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(45,212,191,.08), transparent);
+  pointer-events: none; z-index: 0;
+}
+
+.wrap {
+  position: relative; z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 60px) clamp(16px, 4vw, 40px);
+}
+
+/* ── HEADER */
+.hdr {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 40px;
+  animation: fadeDown .5s ease both;
+}
+.hdr-icon {
+  width: 46px; height: 46px;
+  background: var(--teal-dim);
+  border: 1px solid var(--teal-glow);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.hdr-icon svg { width: 22px; height: 22px; fill: none; stroke: var(--teal); stroke-width: 1.8; stroke-linecap: round; }
+.hdr-text h1 {
+  font-family: var(--font-mono);
+  font-size: clamp(16px, 2.5vw, 22px);
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -.5px;
+  margin-bottom: 3px;
+}
+.hdr-text h1 span { color: var(--teal); }
+.hdr-text p { font-size: 13px; color: var(--muted); }
+.badge {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--teal);
+  background: var(--teal-dim);
+  border: 1px solid var(--teal-glow);
+  padding: 5px 10px; border-radius: 100px;
+  white-space: nowrap;
+}
+.badge-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 var(--teal-glow)} 50%{box-shadow:0 0 0 5px transparent} }
+
+/* ── DROP ZONE */
+.drop-zone {
+  border: 2px dashed var(--border-hi);
+  border-radius: 16px;
+  padding: 48px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  background: var(--panel);
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp .5s .1s ease both;
+  margin-bottom: 24px;
+}
+.drop-zone::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 50%, var(--teal-dim), transparent 70%);
+  opacity: 0; transition: opacity .3s;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--teal);
+  background: rgba(45,212,191,.04);
+}
+.drop-zone:hover::before, .drop-zone.drag-over::before { opacity: 1; }
+.drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.dz-icon {
+  width: 56px; height: 56px;
+  margin: 0 auto 16px;
+  background: var(--teal-dim);
+  border: 1px solid var(--teal-glow);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.dz-icon svg { width: 26px; height: 26px; fill: none; stroke: var(--teal); stroke-width: 1.8; stroke-linecap: round; }
+.dz-title { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+.dz-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+.dz-accepted {
+  display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+}
+.dz-chip {
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--muted);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  padding: 3px 9px; border-radius: 4px;
+}
+
+/* ── PROGRESS */
+#progressWrap {
+  display: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  animation: fadeUp .3s ease both;
+}
+.prog-label {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 12px;
+  margin-bottom: 10px;
+}
+.prog-name { color: var(--teal); }
+.prog-pct { color: var(--muted); }
+.prog-track {
+  height: 4px; background: var(--border);
+  border-radius: 2px; overflow: hidden; margin-bottom: 14px;
+}
+.prog-fill {
+  height: 100%; background: var(--teal); border-radius: 2px;
+  width: 0%; transition: width .1s;
+  box-shadow: 0 0 8px var(--teal-glow);
+}
+.log-stream {
+  font-family: var(--font-mono);
+  font-size: 11px; color: var(--muted);
+  max-height: 120px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.log-line { display: flex; gap: 8px; }
+.log-ts { color: var(--border-hi); flex-shrink: 0; }
+.log-ok { color: var(--green); }
+.log-warn { color: var(--yellow); }
+.log-info { color: var(--teal); }
+
+/* ── RESULTS */
+#results { display: none; animation: fadeUp .4s ease both; }
+
+.res-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px;
+}
+.res-title {
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 600; color: var(--green);
+  display: flex; align-items: center; gap: 7px;
+}
+.res-title svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5; }
+.res-file {
+  margin-left: auto;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--muted);
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  padding: 3px 9px; border-radius: 4px;
+}
+
+/* ── PARAM TABLE */
+.param-grid {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.param-grid-hdr {
+  display: grid; grid-template-columns: 200px 1fr 90px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.param-row {
+  display: grid; grid-template-columns: 200px 1fr 90px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(31,42,61,.5);
+  align-items: center; gap: 8px;
+  transition: background .1s;
+}
+.param-row:last-child { border-bottom: none; }
+.param-row:hover { background: rgba(255,255,255,.02); }
+.param-key {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--muted); font-weight: 500;
+}
+.param-val {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text); word-break: break-all; line-height: 1.5;
+}
+.param-val.teal { color: var(--teal); }
+.param-val.green { color: var(--green); }
+.param-val.yellow { color: var(--yellow); }
+.param-val.truncate {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.param-status {
+  display: flex; justify-content: flex-end;
+}
+.tag {
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 2px 7px; border-radius: 3px; font-weight: 600;
+}
+.tag-ok { background: var(--green-dim); color: var(--green); }
+.tag-warn { background: rgba(251,191,36,.1); color: var(--yellow); }
+.tag-miss { background: rgba(248,113,113,.1); color: var(--red); }
+
+/* ── GENERATED LINKS */
+.links-section {
+  display: flex; flex-direction: column; gap: 14px;
+  margin-bottom: 24px;
+}
+.link-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.link-card-hdr {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.link-card-title {
+  font-family: var(--font-mono); font-size: 12px;
+  font-weight: 600; color: #fff;
+  display: flex; align-items: center; gap: 7px;
+}
+.link-card-title .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+}
+.link-card-desc { font-size: 11px; color: var(--muted); }
+.link-val {
+  padding: 12px 16px;
+  font-family: var(--font-mono); font-size: 11px;
+  line-height: 1.7; word-break: break-all;
+  color: var(--teal);
+}
+.link-val.cmd { color: var(--yellow); }
+.link-actions {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+
+/* ── BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-hi);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans); font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn:hover { background: var(--border); color: #fff; border-color: var(--border-hi); }
+.btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; }
+.btn-teal { background: var(--teal); border-color: var(--teal); color: #000; font-weight: 600; }
+.btn-teal:hover { background: #2ac0ad; border-color: #2ac0ad; color: #000; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+/* ── RESET BUTTON */
+.reset-wrap {
+  display: flex; justify-content: center;
+  margin-top: 32px; padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── ANIMATIONS */
+@keyframes fadeUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:none } }
+@keyframes fadeDown { from { opacity:0; transform:translateY(-10px) } to { opacity:1; transform:none } }
+@keyframes spin { to { transform: rotate(360deg) } }
+
+/* ── TOAST */
+#toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(16px);
+  background: var(--panel2);
+  border: 1px solid var(--border-hi);
+  border-left: 3px solid var(--teal);
+  color: var(--text); font-family: var(--font-mono); font-size: 12px;
+  padding: 10px 18px; border-radius: 8px;
+  opacity: 0; transition: all .25s; z-index: 999;
+  pointer-events: none; white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── SCROLLBAR */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+@media (max-width: 600px) {
+  .param-grid-hdr, .param-row { grid-template-columns: 140px 1fr; }
+  .param-grid-hdr > :last-child, .param-status { display: none; }
+  .badge { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-icon">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    </div>
+    <div class="hdr-text">
+      <h1>ScreenConnect <span>Binary Parser</span></h1>
+      <p>Drop your .exe or .msi — extracts all embedded credentials and generates your MSI download URL</p>
+    </div>
+    <div class="badge"><div class="badge-dot"></div>Client-side only</div>
+  </div>
+
+  <!-- DROP ZONE -->
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" accept=".exe,.msi">
+    <div class="dz-icon">
+      <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></svg>
+    </div>
+    <div class="dz-title">Drop your ScreenConnect binary here</div>
+    <div class="dz-sub">Everything runs in your browser — the file is never uploaded to any server.<br>Works with any version of the ScreenConnect client binary.</div>
+    <div class="dz-accepted">
+      <span class="dz-chip">ScreenConnect.Client.exe</span>
+      <span class="dz-chip">ScreenConnect.ClientSetup.exe</span>
+      <span class="dz-chip">ScreenConnect.ClientSetup.msi</span>
+      <span class="dz-chip">Any .exe / .msi</span>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progressWrap">
+    <div class="prog-label">
+      <span class="prog-name" id="progName">Reading file…</span>
+      <span class="prog-pct" id="progPct">0%</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+    <div class="log-stream" id="logStream"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div class="res-header">
+      <div class="res-title">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Extraction complete
+      </div>
+      <div class="res-file" id="resFileName">—</div>
+    </div>
+
+    <!-- PARAM TABLE -->
+    <div class="param-grid">
+      <div class="param-grid-hdr">
+        <span>Parameter</span>
+        <span>Extracted Value</span>
+        <span>Status</span>
+      </div>
+      <div id="paramRows"></div>
+    </div>
+
+    <!-- GENERATED LINKS -->
+    <div class="links-section" id="linksSection"></div>
+
+    <!-- RESET -->
+    <div class="reset-wrap">
+      <button class="btn" id="resetBtn">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        Parse another file
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// BINARY PARSER — reads the file as bytes in the browser,
+// searches for all known ScreenConnect string patterns
+// ═══════════════════════════════════════════════════════════════
+
+var state = {};
+
+// ── Known patterns to search for in the binary
+// ScreenConnect embeds these as UTF-16LE strings in .NET assemblies
+// and as plain ASCII/UTF-8 in the MSI property table.
+//
+// INSTANCE_ID STRATEGY: Never search for the raw 16-char hex ID directly —
+// the binary contains hundreds of 16-char hex sequences (hashes, offsets, etc).
+// Instead we extract it from anchored patterns that always contain it:
+//   1. SERVICE_NAME: "ScreenConnect Client (XXXXXXXXXXXXXXXX)"
+//   2. URL_SCHEME:   "sc-XXXXXXXXXXXXXXXX"
+//   3. RELAY_HOST:   "instance-XXXXXXXX-relay..." (8-char prefix only)
+// The instance ID is then derived from whichever anchor was found.
+var PATTERNS = {
+  BASE_URL: [
+    /https?:\/\/[\w.-]+\.screenconnect\.com/gi,
+    /https?:\/\/[\w.-]+\.\w{2,}(?=\/Bin)/gi
+  ],
+  RELAY_HOST: [
+    /instance-[\w]+-relay\.screenconnect\.com/gi,
+    /[\w-]+-relay\.screenconnect\.com/gi
+  ],
+  // SERVICE_NAME is the most reliable anchor for the instance ID.
+  // The format is always: ScreenConnect Client (XXXXXXXXXXXXXXXX)
+  // We search ASCII, collapsed-UTF16, and raw UTF-16LE byte scan.
+  SERVICE_NAME: [
+    /ScreenConnect Client \([0-9a-f]{16}\)/gi,
+    /ScreenConnect ?Client ?\([0-9a-f]{16}\)/gi
+  ],
+  // URL_SCHEME is second anchor: sc-XXXXXXXXXXXXXXXX
+  URL_SCHEME: [
+    /sc-[0-9a-f]{16}/gi
+  ],
+  // INSTANCE_ID is derived from SERVICE_NAME/URL_SCHEME — NOT searched directly
+  // (populated in the post-extraction derivation block below)
+  INSTANCE_ID: [],
+  PUBLIC_KEY: [
+    /BgIAAACkAABSU0Ex[\w%+\/=]{100,}/g,
+    /BgIAAACkAABSU0ExAAgAAAEAAQD[\w+\/=]{200,}/g
+  ],
+  PRODUCT_CODE: [
+    /\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}/gi
+  ],
+  VERSION: [
+    /\d{2,3}\.\d{1,2}\.\d{1,3}\.\d{1,5}/g
+  ]
+};
+
+function log(msg, cls) {
+  cls = cls || 'log-info';
+  var now = new Date();
+  var ts = now.toTimeString().slice(0,8);
+  var el = document.getElementById('logStream');
+  var line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = '<span class="log-ts">' + ts + '</span><span class="' + cls + '">' + msg + '</span>';
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progPct').textContent = pct + '%';
+  if (label) document.getElementById('progName').textContent = label;
+}
+
+// ── Convert binary ArrayBuffer to searchable string representations
+function bufToStrings(buf) {
+  var bytes = new Uint8Array(buf);
+  var results = { ascii: '', utf16: '', hex: '' };
+
+  // ASCII / UTF-8 pass — printable chars + URLs
+  var ascii = [];
+  for (var i = 0; i < bytes.length; i++) {
+    var b = bytes[i];
+    ascii.push((b >= 32 && b < 127) || b === 10 || b === 13 ? String.fromCharCode(b) : ' ');
+  }
+  results.ascii = ascii.join('');
+
+  // UTF-16LE pass — .NET strings are stored as UTF-16LE (2 bytes per char, high byte = 0 for ASCII)
+  var utf16 = [];
+  for (var i = 0; i < bytes.length - 1; i += 2) {
+    var lo = bytes[i], hi = bytes[i+1];
+    if (hi === 0 && lo >= 32 && lo < 127) {
+      utf16.push(String.fromCharCode(lo));
+    } else {
+      utf16.push(' ');
+    }
+  }
+  // Collapse runs of spaces into single space so multi-word strings like
+  // "ScreenConnect Client (xxxx)" survive the decode intact
+  results.utf16 = utf16.join('').replace(/ {2,}/g, ' ');
+
+  // Also scan raw UTF-16LE by looking for the literal byte sequence
+  // "S c r e e n C o n n e c t " in the buffer
+  // This catches cases where the space collapse still misses the pattern
+  var sc16 = [];
+  for (var i = 0; i < bytes.length - 1; i++) {
+    // Look for 'S' followed by null (UTF-16LE BMP char start)
+    if (bytes[i] === 83 && bytes[i+1] === 0) {
+      var chunk = [];
+      var j = i;
+      while (j < bytes.length - 1 && j < i + 200) {
+        var b = bytes[j], nb = bytes[j+1];
+        if (nb === 0 && b >= 32 && b < 127) {
+          chunk.push(String.fromCharCode(b));
+          j += 2;
+        } else if (nb === 0 && b === 0) {
+          break; // null terminator
+        } else {
+          break;
+        }
+      }
+      var s = chunk.join('');
+      if (s.length > 10) sc16.push(s);
+    }
+  }
+  if (sc16.length) results.utf16 += ' ' + sc16.join(' ');
+
+  return results;
+}
+
+// ── Search all string representations for a pattern
+function searchAll(strings, patterns) {
+  var found = new Set();
+  var all = [strings.ascii, strings.utf16];
+  patterns.forEach(function(pat) {
+    all.forEach(function(str) {
+      // Reset lastIndex for global patterns
+      pat.lastIndex = 0;
+      var m;
+      while ((m = pat.exec(str)) !== null) {
+        var val = m[0].trim().replace(/\s+/g, '');
+        if (val.length > 3) found.add(val);
+        pat.lastIndex = m.index + 1;
+      }
+    });
+  });
+  return Array.from(found);
+}
+
+// ── Score candidates to pick the best match
+function best(candidates, key) {
+  if (!candidates || !candidates.length) return null;
+
+  if (key === 'BASE_URL') {
+    // Prefer screenconnect.com domains, longest match
+    var sc = candidates.filter(function(c){ return c.indexOf('screenconnect.com') >= 0; });
+    return (sc.length ? sc : candidates).sort(function(a,b){ return b.length - a.length; })[0];
+  }
+  if (key === 'RELAY_HOST') {
+    var relay = candidates.filter(function(c){ return c.indexOf('-relay.') >= 0; });
+    return relay.length ? relay[0] : candidates[0];
+  }
+  if (key === 'INSTANCE_ID') {
+    // 16 hex chars, appears in SERVICE_NAME pattern too — pick standalone ones
+    var ids = candidates.filter(function(c){ return /^[0-9a-f]{16}$/.test(c); });
+    // The instance ID appears most frequently
+    if (!ids.length) return null;
+    var freq = {};
+    ids.forEach(function(id){ freq[id] = (freq[id]||0)+1; });
+    return Object.keys(freq).sort(function(a,b){ return freq[b]-freq[a]; })[0];
+  }
+  if (key === 'PUBLIC_KEY') {
+    // Longest match = most complete key
+    return candidates.sort(function(a,b){ return b.length - a.length; })[0];
+  }
+  if (key === 'PRODUCT_CODE') {
+    // Exclude all-zero GUIDs and common placeholder GUIDs
+    var real = candidates.filter(function(c){
+      return !/00000000-0000/.test(c) && !/FFFFFFFF-FFFF/.test(c);
+    });
+    return real.length ? real[0] : candidates[0];
+  }
+  if (key === 'SERVICE_NAME') {
+    return candidates[0];
+  }
+  if (key === 'URL_SCHEME') {
+    return candidates[0];
+  }
+  if (key === 'VERSION') {
+    // Filter out things like IP addresses, prefer 4-part versions
+    var vers = candidates.filter(function(v){
+      var p = v.split('.');
+      return p.length === 4 && parseInt(p[0]) >= 6 && parseInt(p[0]) <= 99;
+    });
+    return vers.length ? vers[0] : null;
+  }
+  return candidates[0];
+}
+
+// ── Main parse function
+function parseFile(file) {
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('dropZone').style.display = 'none';
+  document.getElementById('resFileName').textContent = file.name;
+
+  setProgress(5, 'Reading file…');
+  log('File: ' + file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)', 'log-info');
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    setProgress(25, 'Decoding binary…');
+    log('Loaded ' + e.target.result.byteLength.toLocaleString() + ' bytes', 'log-ok');
+
+    setTimeout(function() {
+      var strings = bufToStrings(e.target.result);
+      setProgress(50, 'Scanning for patterns…');
+      log('ASCII scan: ' + strings.ascii.length.toLocaleString() + ' chars', 'log-info');
+      log('UTF-16LE scan: ' + strings.utf16.length.toLocaleString() + ' chars', 'log-info');
+
+      setTimeout(function() {
+        var extracted = {};
+        Object.keys(PATTERNS).forEach(function(key) {
+          var candidates = searchAll(strings, PATTERNS[key]);
+          extracted[key] = best(candidates, key);
+          var status = extracted[key] ? '✓ found' : '✗ not found';
+          log(key + ': ' + status, extracted[key] ? 'log-ok' : 'log-warn');
+        });
+
+        // ── INSTANCE_ID DERIVATION — anchor-based, most reliable approach
+        // Priority: SERVICE_NAME > URL_SCHEME > RELAY_HOST prefix
+        // We never trust a raw 16-char hex scan — too many false positives in binary data
+
+        // 1. Extract from SERVICE_NAME: "ScreenConnect Client (XXXXXXXXXXXXXXXX)"
+        if (extracted.SERVICE_NAME) {
+          var snMatch = extracted.SERVICE_NAME.replace(/\s/g,'').match(/ScreenConnectClient\(([0-9a-f]{16})\)/i);
+          if (snMatch) {
+            extracted.INSTANCE_ID = snMatch[1];
+            log('INSTANCE_ID: anchored from SERVICE_NAME → ' + extracted.INSTANCE_ID, 'log-ok');
+          }
+        }
+
+        // 2. Extract from URL_SCHEME: "sc-XXXXXXXXXXXXXXXX"
+        if (!extracted.INSTANCE_ID && extracted.URL_SCHEME) {
+          var usMatch = extracted.URL_SCHEME.match(/sc-([0-9a-f]{16})/i);
+          if (usMatch) {
+            extracted.INSTANCE_ID = usMatch[1];
+            log('INSTANCE_ID: anchored from URL_SCHEME → ' + extracted.INSTANCE_ID, 'log-ok');
+          }
+        }
+
+        // 3. Raw UTF-16LE byte scan specifically for "ScreenConnect Client (" sequence
+        //    This is a direct byte-level search, bypasses all string decode issues
+        if (!extracted.INSTANCE_ID) {
+          var bytes2 = new Uint8Array(e.target.result);
+          // UTF-16LE bytes for "ScreenConnect Client ("
+          // S=83,c=99,r=114,e=101,e=101,n=110,C=67,o=111,n=110,n=110,e=101,c=99,t=116,' '=32,C=67,l=108,i=105,e=101,n=110,t=116,' '=32,'('=40
+          var needle = [83,0,99,0,114,0,101,0,101,0,110,0,67,0,111,0,110,0,110,0,101,0,99,0,116,0,32,0,67,0,108,0,105,0,101,0,110,0,116,0,32,0,40,0];
+          outer: for (var bi = 0; bi <= bytes2.length - needle.length - 32; bi++) {
+            for (var ni = 0; ni < needle.length; ni++) {
+              if (bytes2[bi + ni] !== needle[ni]) continue outer;
+            }
+            // Found the prefix — read the next 16 chars (32 bytes UTF-16LE)
+            var hexChars = [];
+            var start = bi + needle.length;
+            for (var ci = 0; ci < 16; ci++) {
+              var lo = bytes2[start + ci*2];
+              var hi = bytes2[start + ci*2 + 1];
+              if (hi === 0 && ((lo >= 48 && lo <= 57) || (lo >= 97 && lo <= 102))) {
+                hexChars.push(String.fromCharCode(lo));
+              } else { hexChars = []; break; }
+            }
+            if (hexChars.length === 16) {
+              extracted.INSTANCE_ID = hexChars.join('');
+              log('INSTANCE_ID: found via UTF-16LE byte scan → ' + extracted.INSTANCE_ID, 'log-ok');
+              break;
+            }
+          }
+        }
+
+        // 4. Same byte scan for ASCII encoding (MSI property tables store as ASCII)
+        if (!extracted.INSTANCE_ID) {
+          var bytes3 = new Uint8Array(e.target.result);
+          var asciiNeedle = 'ScreenConnect Client (';
+          outer2: for (var bi = 0; bi <= bytes3.length - asciiNeedle.length - 16; bi++) {
+            var match = true;
+            for (var ni = 0; ni < asciiNeedle.length; ni++) {
+              if (bytes3[bi + ni] !== asciiNeedle.charCodeAt(ni)) { match = false; break; }
+            }
+            if (!match) continue;
+            var hexChars2 = [];
+            var start2 = bi + asciiNeedle.length;
+            for (var ci = 0; ci < 16; ci++) {
+              var b = bytes3[start2 + ci];
+              if ((b >= 48 && b <= 57) || (b >= 97 && b <= 102)) {
+                hexChars2.push(String.fromCharCode(b));
+              } else { hexChars2 = []; break; }
+            }
+            if (hexChars2.length === 16) {
+              extracted.INSTANCE_ID = hexChars2.join('');
+              log('INSTANCE_ID: found via ASCII byte scan → ' + extracted.INSTANCE_ID, 'log-ok');
+              break;
+            }
+          }
+        }
+
+        // Now derive SERVICE_NAME / URL_SCHEME from confirmed INSTANCE_ID
+        if (extracted.INSTANCE_ID) {
+          if (!extracted.SERVICE_NAME) {
+            extracted.SERVICE_NAME = 'ScreenConnect Client (' + extracted.INSTANCE_ID + ')';
+            log('SERVICE_NAME: derived → ' + extracted.SERVICE_NAME, 'log-info');
+          }
+          if (!extracted.URL_SCHEME) {
+            extracted.URL_SCHEME = 'sc-' + extracted.INSTANCE_ID;
+            log('URL_SCHEME: derived → ' + extracted.URL_SCHEME, 'log-info');
+          }
+        } else {
+          log('INSTANCE_ID: could not extract — binary may be packed or encrypted', 'log-warn');
+        }
+
+        // Derive RELAY_HOST from relay pattern if not directly found
+        if (!extracted.RELAY_HOST) {
+          var relayPat = /instance-[\w]+-relay\.screenconnect\.com/gi;
+          var rm = relayPat.exec(strings.ascii);
+          if (!rm) { relayPat.lastIndex = 0; rm = relayPat.exec(strings.utf16); }
+          if (rm) { extracted.RELAY_HOST = rm[0]; log('RELAY_HOST: found via fallback scan', 'log-info'); }
+        }
+
+        setProgress(85, 'Building URLs…');
+        log('Generating MSI download URL…', 'log-info');
+
+        setTimeout(function() {
+          setProgress(100, 'Complete');
+          log('Done — all parameters extracted', 'log-ok');
+
+          state = extracted;
+          renderResults(extracted, file.name);
+        }, 300);
+      }, 200);
+    }, 100);
+  };
+
+  reader.onerror = function() {
+    log('Error reading file', 'log-warn');
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Render results
+function renderResults(ex, fileName) {
+  setTimeout(function() {
+    document.getElementById('progressWrap').style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+
+    var rows = document.getElementById('paramRows');
+    rows.innerHTML = '';
+
+    var params = [
+      { key: 'BASE_URL',      label: 'BASE_URL',        cls: 'teal',   desc: 'ScreenConnect server hostname' },
+      { key: 'RELAY_HOST',    label: 'RELAY_HOST',      cls: 'teal',   desc: 'WebSocket relay host' },
+      { key: 'INSTANCE_ID',   label: 'INSTANCE_ID',     cls: 'green',  desc: '16-char instance fingerprint' },
+      { key: 'PUBLIC_KEY',    label: 'PUBLIC_KEY (k=)', cls: 'yellow', desc: 'RSA-2048, required for auth', truncate: true },
+      { key: 'PRODUCT_CODE',  label: 'PRODUCT_CODE',    cls: '',       desc: 'MSI product GUID' },
+      { key: 'SERVICE_NAME',  label: 'SERVICE_NAME',    cls: '',       desc: 'Windows service name' },
+      { key: 'URL_SCHEME',    label: 'URL_SCHEME',      cls: '',       desc: 'Protocol handler' },
+      { key: 'VERSION',       label: 'VERSION',         cls: '',       desc: 'Build version' },
+    ];
+
+    params.forEach(function(p) {
+      var val = ex[p.key];
+      var row = document.createElement('div');
+      row.className = 'param-row';
+
+      var display = val || '— not found';
+      var valCls = 'param-val' + (p.cls ? ' ' + p.cls : '') + (p.truncate && val ? ' truncate' : '');
+      var tagHtml = val
+        ? '<span class="tag tag-ok">found</span>'
+        : '<span class="tag tag-miss">missing</span>';
+
+      row.innerHTML =
+        '<div class="param-key">' + p.label + '</div>' +
+        '<div class="' + valCls + '" title="' + (val||'') + '">' + display + '</div>' +
+        '<div class="param-status">' + tagHtml + '</div>';
+
+      rows.appendChild(row);
+    });
+
+    // Generate links
+    renderLinks(ex);
+  }, 400);
+}
+
+function renderLinks(ex) {
+  var section = document.getElementById('linksSection');
+  section.innerHTML = '';
+
+  var base    = ex.BASE_URL || '';
+  var relay   = ex.RELAY_HOST || '';
+  var port    = '443';
+  var key     = ex.PUBLIC_KEY || '';
+  var iid     = ex.INSTANCE_ID || '';
+
+  var msiUrl = base + '/Bin/ScreenConnect.ClientSetup.msi' +
+    '?e=Access&y=Guest' +
+    '&h=' + relay +
+    '&p=' + port +
+    (key ? '&k=' + key : '') ;
+
+  var exeUrl = base + '/Bin/ScreenConnect.Client.exe' +
+    '?e=Support&y=Guest' +
+    '&h=' + relay +
+    '&p=' + port +
+    (key ? '&k=' + key : '');
+
+  var msiexecCmd = 'msiexec.exe /i "ScreenConnect.ClientSetup.msi" /quiet /norestart' +
+    ' SERVICE_CLIENT_LAUNCH_PARAMETERS="?h=' + relay + '&p=' + port + (key ? '&k=' + key : '') + '"' +
+    ' INSTANCEID="' + iid + '"' +
+    ' ALLUSERS=1 REBOOT=ReallySuppress';
+
+  var links = [
+    {
+      title: 'MSI Download URL',
+      dot: 'var(--teal)',
+      desc: 'Direct download — paste in browser or use in portal',
+      val: msiUrl,
+      cls: '',
+      actions: [
+        { label: '📋 Copy URL', fn: function(){ copyText(msiUrl); } },
+        { label: '⬇ Open / Download', fn: function(){ window.open(msiUrl, '_blank'); } }
+      ]
+    },
+    {
+      title: 'On-demand Guest .exe',
+      dot: 'var(--accent)',
+      desc: 'Share with end users — runs without permanent install',
+      val: exeUrl,
+      cls: '',
+      actions: [
+        { label: '📋 Copy URL', fn: function(){ copyText(exeUrl); } }
+      ]
+    },
+    {
+      title: 'Silent msiexec Deploy Command',
+      dot: 'var(--yellow)',
+      desc: 'GPO / Intune / SCCM — runs as SYSTEM, no UAC',
+      val: msiexecCmd,
+      cls: 'cmd',
+      actions: [
+        { label: '📋 Copy Command', fn: function(){ copyText(msiexecCmd); } }
+      ]
+    }
+  ];
+
+  links.forEach(function(l) {
+    var card = document.createElement('div');
+    card.className = 'link-card';
+
+    var actHtml = l.actions.map(function(a, i) {
+      return '<button class="btn btn-sm' + (i === 0 ? ' btn-teal' : '') + '" data-idx="' + i + '">' + a.label + '</button>';
+    }).join('');
+
+    card.innerHTML =
+      '<div class="link-card-hdr">' +
+        '<div class="link-card-title">' +
+          '<div class="dot" style="background:' + l.dot + '"></div>' +
+          l.title +
+        '</div>' +
+        '<div class="link-card-desc">' + l.desc + '</div>' +
+      '</div>' +
+      '<div class="link-val ' + l.cls + '">' + escHtml(l.val) + '</div>' +
+      '<div class="link-actions">' + actHtml + '</div>';
+
+    // Wire button actions
+    l.actions.forEach(function(a, i) {
+      card.querySelector('[data-idx="' + i + '"]').addEventListener('click', a.fn);
+    });
+
+    section.appendChild(card);
+  });
+
+  // Portal update section
+  var updateCard = document.createElement('div');
+  updateCard.className = 'link-card';
+  updateCard.innerHTML =
+    '<div class="link-card-hdr">' +
+      '<div class="link-card-title">' +
+        '<div class="dot" style="background:var(--green)"></div>' +
+        'Update index.html Portal' +
+      '</div>' +
+      '<div class="link-card-desc">Generates updated portal code using these extracted credentials</div>' +
+    '</div>' +
+    '<div class="link-val" style="color:var(--muted);font-size:11px;padding:14px 16px">' +
+      'Click below to download an updated <code style="color:var(--teal)">index.html</code> with the new MSI URL baked in — ready to drop into your Vercel project.' +
+    '</div>' +
+    '<div class="link-actions">' +
+      '<button class="btn btn-teal btn-sm" id="dlPortalBtn">⬇ Download Updated index.html</button>' +
+    '</div>';
+
+  updateCard.querySelector('#dlPortalBtn').addEventListener('click', function() {
+    downloadUpdatedPortal(msiUrl, base, relay, iid);
+  });
+
+  section.appendChild(updateCard);
+}
+
+// ── Download updated portal with new credentials baked in
+function downloadUpdatedPortal(msiUrl, base, relay, iid) {
+  var html = generatePortalHTML(msiUrl, base, relay, iid);
+  var blob = new Blob([html], { type: 'text/html' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'index.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('index.html downloaded — drop it into your Vercel project');
+}
+
+function generatePortalHTML(msiUrl, base, relay, iid) {
+  // Inlines the new MSI URL into the portal template
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Remote Support — IT Support Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f8f7f4;--card:#ffffff;--dark:#0f1117;--teal:#0d9488;--teal-light:#ccfbf1;--teal-mid:#14b8a6;--text:#1c1c1e;--muted:#6b7280;--border:#e5e7eb;--shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.06);--shadow-lg:0 8px 32px rgba(0,0,0,.10),0 2px 8px rgba(0,0,0,.06)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle at 20% 20%,rgba(13,148,136,.07) 0%,transparent 50%),radial-gradient(circle at 80% 80%,rgba(13,148,136,.05) 0%,transparent 50%);pointer-events:none;z-index:0}
+header{position:sticky;top:0;z-index:100;background:rgba(248,247,244,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 clamp(20px,5vw,60px);height:60px;display:flex;align-items:center;justify-content:space-between}
+.logo-wrap{display:flex;align-items:center;gap:10px}
+.logo-mark{width:32px;height:32px;background:var(--teal);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round}
+.logo-text{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--dark);letter-spacing:-.3px}
+.logo-text span{color:var(--teal)}
+.header-badge{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:500}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:livepulse 2s infinite}
+@keyframes livepulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}50%{box-shadow:0 0 0 5px rgba(34,197,94,0)}}
+.hero{position:relative;z-index:1;padding:clamp(60px,10vw,100px) clamp(20px,5vw,60px) clamp(40px,6vw,60px);max-width:900px;margin:0 auto;text-align:center}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;background:var(--teal-light);color:var(--teal);font-size:12px;font-weight:600;padding:5px 12px;border-radius:100px;margin-bottom:24px;letter-spacing:.02em;text-transform:uppercase;border:1px solid rgba(13,148,136,.2);animation:fadeUp .5s ease both}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(32px,6vw,58px);font-weight:800;line-height:1.08;letter-spacing:-1.5px;color:var(--dark);margin-bottom:20px;animation:fadeUp .5s .1s ease both}
+.hero h1 em{font-style:normal;color:var(--teal);position:relative}
+.hero h1 em::after{content:'';position:absolute;left:0;bottom:2px;width:100%;height:3px;background:var(--teal);border-radius:2px;opacity:.3}
+.hero p{font-size:clamp(15px,2vw,18px);color:var(--muted);line-height:1.65;max-width:560px;margin:0 auto 40px;font-weight:400;animation:fadeUp .5s .2s ease both}
+.card-wrap{position:relative;z-index:1;max-width:560px;margin:0 auto;padding:0 clamp(16px,4vw,40px);animation:fadeUp .5s .3s ease both}
+.main-card{background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg);overflow:hidden}
+.card-header{background:var(--dark);padding:20px 24px;display:flex;align-items:center;gap:12px}
+.card-header-icon{width:40px;height:40px;background:rgba(255,255,255,.08);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.card-header-icon svg{width:20px;height:20px;fill:none;stroke:var(--teal-mid);stroke-width:1.8;stroke-linecap:round}
+.card-header-text{flex:1}
+.card-header-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;margin-bottom:2px}
+.card-header-sub{font-size:12px;color:rgba(255,255,255,.45)}
+.card-body{padding:28px 24px}
+.steps-list{list-style:none;margin-bottom:28px;display:flex;flex-direction:column;gap:16px}
+.step-item{display:flex;gap:14px;align-items:flex-start}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--teal-light);color:var(--teal);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;border:1.5px solid rgba(13,148,136,.25)}
+.step-text{flex:1}
+.step-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:2px}
+.step-desc{font-size:13px;color:var(--muted);line-height:1.5}
+.step-desc code{background:#f3f4f6;padding:1px 5px;border-radius:3px;font-size:11px;color:var(--teal)}
+.download-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px 24px;background:var(--teal);color:#fff;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:16px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s;position:relative;overflow:hidden;letter-spacing:-.2px}
+.download-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.12) 0%,transparent 60%);pointer-events:none}
+.download-btn:hover{background:#0f766e;transform:translateY(-1px);box-shadow:0 8px 24px rgba(13,148,136,.35)}
+.download-btn:active{transform:translateY(0)}
+.download-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex-shrink:0}
+.btn-sub{display:block;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:400;opacity:.75;margin-top:2px;letter-spacing:0}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.support-link{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:1.5px solid var(--border);border-radius:10px;color:var(--muted);font-size:13px;text-decoration:none;transition:all .15s;font-weight:500}
+.support-link:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-light)}
+.support-link svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.trust-strip{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;font-size:11.5px;color:var(--muted);padding-bottom:4px}
+.trust-strip svg{width:13px;height:13px;fill:none;stroke:var(--teal);stroke-width:2;flex-shrink:0}
+.trust-sep{color:var(--border);margin:0 4px}
+.features{position:relative;z-index:1;max-width:860px;margin:48px auto 0;padding:0 clamp(16px,4vw,40px) clamp(60px,8vw,80px);display:grid;grid-template-columns:repeat(3,1fr);gap:16px;animation:fadeUp .5s .45s ease both}
+@media(max-width:640px){.features{grid-template-columns:1fr}}
+.feat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow)}
+.feat-icon{width:36px;height:36px;background:var(--teal-light);border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.feat-icon svg{width:18px;height:18px;fill:none;stroke:var(--teal);stroke-width:2;stroke-linecap:round}
+.feat-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:5px;color:var(--dark)}
+.feat-desc{font-size:13px;color:var(--muted);line-height:1.5}
+footer{position:relative;z-index:1;border-top:1px solid var(--border);padding:20px clamp(20px,5vw,60px);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:rgba(248,247,244,.8)}
+.footer-left{font-size:12px;color:var(--muted)}
+.footer-left strong{color:var(--text)}
+.footer-right{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--dark);color:#fff;padding:10px 20px;border-radius:100px;font-size:13px;font-weight:500;opacity:0;transition:all .3s;z-index:999;white-space:nowrap;pointer-events:none;display:flex;align-items:center;gap:7px}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast svg{width:14px;height:14px;fill:none;stroke:#22c55e;stroke-width:2.5}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-wrap">
+    <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg></div>
+    <span class="logo-text">Andrew <span>Fleischer</span> IT</span>
+  </div>
+  <div class="header-badge"><div class="live-dot"></div>Support Online</div>
+</header>
+<section class="hero">
+  <div class="hero-tag"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Secure Remote Support</div>
+  <h1>Get help from your<br><em>IT technician</em> in minutes</h1>
+  <p>Download the support tool below — it lets us view and control your screen to resolve your issue quickly and securely.</p>
+</section>
+<div class="card-wrap">
+  <div class="main-card">
+    <div class="card-header">
+      <div class="card-header-icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+      <div class="card-header-text">
+        <div class="card-header-title">Remote Support Agent</div>
+        <div class="card-header-sub">ConnectWise ScreenConnect · Signed by ConnectWise, LLC</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <ol class="steps-list">
+        <li class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <div class="step-title">Click the download button below</div>
+            <div class="step-desc">A file called <code>ScreenConnect.ClientSetup.msi</code> will download to your computer.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <div class="step-title">Open the downloaded file</div>
+            <div class="step-desc">Find it in your Downloads folder and double-click it to run. Click <strong>Yes</strong> if Windows asks for permission.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <div class="step-title">Tell your technician you're ready</div>
+            <div class="step-desc">Once installed, your technician will be notified automatically and can connect to assist you.</div>
+          </div>
+        </li>
+      </ol>
+      <a id="downloadBtn" class="download-btn" href="${msiUrl}" onclick="handleDownload(event)">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Download Support Tool<span class="btn-sub">ScreenConnect.ClientSetup.msi · ~8 MB · Windows</span></span>
+      </a>
+      <div class="divider">or join with a session code</div>
+      <a href="${base}" target="_blank" rel="noopener" class="support-link">
+        <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Enter a session code at ${base.replace('https://','')}
+      </a>
+      <div class="trust-strip">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Encrypted connection
+        <span class="trust-sep">·</span>
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Verified publisher
+        <span class="trust-sep">·</span>
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Session ends when you close it
+      </div>
+    </div>
+  </div>
+</div>
+<div class="features">
+  <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="feat-title">Encrypted &amp; Secure</div><div class="feat-desc">All traffic is encrypted over TLS. Your technician can only connect during an active session.</div></div>
+  <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="feat-title">You Stay in Control</div><div class="feat-desc">You can see everything the technician does. Close the app at any time to immediately end the session.</div></div>
+  <div class="feat"><div class="feat-icon"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8 19.79 19.79 0 01.0 2.1A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg></div><div class="feat-title">Need Help?</div><div class="feat-desc">Call or email your technician directly if you have trouble with the download or installation.</div></div>
+</div>
+<footer>
+  <div class="footer-left"><strong>Andrew Fleischer IT</strong> · Powered by ConnectWise ScreenConnect</div>
+  <div class="footer-right">instance: ${iid}</div>
+</footer>
+<div id="toast"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Download started!</div>
+<\x73cript>
+function handleDownload(e){var t=document.getElementById('toast');t.classList.add('show');setTimeout(function(){t.classList.remove('show')},3000)}
+<\/script>
+</body>
+</html>`;
+}
+
+// ── Utilities
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyText(txt) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function(){ showToast('Copied to clipboard ✓'); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = txt; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('Copied ✓');
+  }
+}
+
+var toastTimer;
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 3200);
+}
+
+// ── FILE INPUT WIRING
+document.addEventListener('DOMContentLoaded', function() {
+  var dz = document.getElementById('dropZone');
+  var fi = document.getElementById('fileInput');
+
+  fi.addEventListener('change', function() {
+    if (fi.files[0]) parseFile(fi.files[0]);
+  });
+
+  dz.addEventListener('dragover', function(e) {
+    e.preventDefault(); dz.classList.add('drag-over');
+  });
+  dz.addEventListener('dragleave', function() {
+    dz.classList.remove('drag-over');
+  });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    var f = e.dataTransfer.files[0];
+    if (f) parseFile(f);
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', function() {
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('progressWrap').style.display = 'none';
+    document.getElementById('dropZone').style.display = 'block';
+    document.getElementById('logStream').innerHTML = '';
+    fi.value = '';
+    state = {};
+  });
+});
+</script>
+</body>
+</html>
