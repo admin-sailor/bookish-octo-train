@@ -439,33 +439,44 @@ var state = {};
 
 // ── Known patterns to search for in the binary
 // ScreenConnect embeds these as UTF-16LE strings in .NET assemblies
-// and as plain ASCII/UTF-8 in the MSI property table
+// and as plain ASCII/UTF-8 in the MSI property table.
+//
+// INSTANCE_ID STRATEGY: Never search for the raw 16-char hex ID directly —
+// the binary contains hundreds of 16-char hex sequences (hashes, offsets, etc).
+// Instead we extract it from anchored patterns that always contain it:
+//   1. SERVICE_NAME: "ScreenConnect Client (XXXXXXXXXXXXXXXX)"
+//   2. URL_SCHEME:   "sc-XXXXXXXXXXXXXXXX"
+//   3. RELAY_HOST:   "instance-XXXXXXXX-relay..." (8-char prefix only)
+// The instance ID is then derived from whichever anchor was found.
 var PATTERNS = {
   BASE_URL: [
     /https?:\/\/[\w.-]+\.screenconnect\.com/gi,
     /https?:\/\/[\w.-]+\.\w{2,}(?=\/Bin)/gi
   ],
   RELAY_HOST: [
-    /[\w-]+-relay\.screenconnect\.com/gi,
-    /instance-[\w]+-relay\.screenconnect\.com/gi
+    /instance-[\w]+-relay\.screenconnect\.com/gi,
+    /[\w-]+-relay\.screenconnect\.com/gi
   ],
-  INSTANCE_ID: [
-    /[0-9a-f]{16}(?=[^0-9a-f]|$)/g
+  // SERVICE_NAME is the most reliable anchor for the instance ID.
+  // The format is always: ScreenConnect Client (XXXXXXXXXXXXXXXX)
+  // We search ASCII, collapsed-UTF16, and raw UTF-16LE byte scan.
+  SERVICE_NAME: [
+    /ScreenConnect Client \([0-9a-f]{16}\)/gi,
+    /ScreenConnect ?Client ?\([0-9a-f]{16}\)/gi
   ],
+  // URL_SCHEME is second anchor: sc-XXXXXXXXXXXXXXXX
+  URL_SCHEME: [
+    /sc-[0-9a-f]{16}/gi
+  ],
+  // INSTANCE_ID is derived from SERVICE_NAME/URL_SCHEME — NOT searched directly
+  // (populated in the post-extraction derivation block below)
+  INSTANCE_ID: [],
   PUBLIC_KEY: [
-    /BgIAAACkAABSU0Ex[\w%+/=]{100,}/g,         // URL-encoded RSA key header
-    /BgIAAACkAABSU0ExAAgAAAEAAQD[\w+/=]{200,}/g // Base64 RSA key
+    /BgIAAACkAABSU0Ex[\w%+\/=]{100,}/g,
+    /BgIAAACkAABSU0ExAAgAAAEAAQD[\w+\/=]{200,}/g
   ],
   PRODUCT_CODE: [
     /\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}/gi
-  ],
-  SERVICE_NAME: [
-    /ScreenConnect Client \([0-9a-f]{16}\)/gi,
-    /ScreenConnect[ ]+Client[ ]+\([0-9a-f]{16}\)/gi,  // with extra spaces from UTF-16 decode gaps
-    /ScreenConnect.{0,4}Client.{0,4}\([0-9a-f]{16}\)/gi // with possible decode artifacts
-  ],
-  URL_SCHEME: [
-    /sc-[0-9a-f]{16}/gi
   ],
   VERSION: [
     /\d{2,3}\.\d{1,2}\.\d{1,3}\.\d{1,5}/g
